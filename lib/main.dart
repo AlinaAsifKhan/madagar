@@ -3,6 +3,7 @@ import 'package:device_preview/device_preview.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'screens/login_screen.dart';
 import 'services/user_service.dart';
 import 'models/user_model.dart';
@@ -13,9 +14,12 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // DevicePreview doesn't work well on web, disable it there
+  final bool enableDevicePreview = !kIsWeb;
+  
   runApp(
     DevicePreview(
-      enabled: true,
+      enabled: enableDevicePreview,
       builder: (context) => const MyApp(),
     ),
   );
@@ -26,12 +30,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool enableDevicePreview = !kIsWeb;
+    
     return MaterialApp(
       title: 'Madadgar',
       debugShowCheckedModeBanner: false,
-      useInheritedMediaQuery: true,
-      locale: DevicePreview.locale(context),
-      builder: DevicePreview.appBuilder,
+      useInheritedMediaQuery: enableDevicePreview,
+      locale: enableDevicePreview ? DevicePreview.locale(context) : null,
+      builder: enableDevicePreview ? DevicePreview.appBuilder : null,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -250,170 +256,6 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
-    );
-  }
-                      Text(
-                        'Find & Earn',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildActionCard(
-                        context,
-                        'Browse Nearby Tasks',
-                        'Find available tasks in your area',
-                        Icons.location_on_outlined,
-                        Colors.blue,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildActionCard(
-                        context,
-                        'My Active Tasks',
-                        'View tasks you are currently helping with',
-                        Icons.assignment_turned_in_outlined,
-                        Colors.green,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildActionCard(
-                        context,
-                        'My Earnings',
-                        'View your completed tasks and earnings',
-                        Icons.wallet_outlined,
-                        Colors.amber,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.surface,
-              colorScheme.surface.withOpacity(0.95),
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Welcome Section
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.primary.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome Back!',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onPrimaryContainer,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Choose your role to get started',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onPrimaryContainer.withOpacity(0.8),
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-
-                    // Content based on role (removed toggle)
-                    if (isCustomer) ...[
-                  Text(
-                    'Post an Errand',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildActionCard(
-                    context,
-                    'Create New Task',
-                    'Post your errand and find a helper nearby',
-                    Icons.add_circle_outline,
-                    Colors.blue,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionCard(
-                    context,
-                    'My Pending Tasks',
-                    'View tasks waiting for a helper',
-                    Icons.schedule,
-                    Colors.orange,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionCard(
-                    context,
-                    'Task History',
-                    'Review your completed errands',
-                    Icons.history,
-                    Colors.green,
-                  ),
-                ] else ...[
-                  Text(
-                    'Find & Earn',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildActionCard(
-                    context,
-                    'Browse Nearby Tasks',
-                    'Find available tasks in your area',
-                    Icons.location_on_outlined,
-                    Colors.blue,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionCard(
-                    context,
-                    'My Active Tasks',
-                    'View tasks you are currently helping with',
-                    Icons.assignment_turned_in_outlined,
-                    Colors.green,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionCard(
-                    context,
-                    'My Earnings',
-                    'View your completed tasks and earnings',
-                    Icons.wallet_outlined,
-                    Colors.amber,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
