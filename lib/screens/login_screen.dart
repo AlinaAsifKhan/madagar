@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/user_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,15 +35,21 @@ class _LoginScreenState extends State<LoginScreen> {
           throw Exception('Name is required');
         }
         
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text,
           password: _passwordController.text,
         );
         
         // Update user profile with name
-        await FirebaseAuth.instance.currentUser?.updateDisplayName(_nameController.text);
+        await userCredential.user?.updateDisplayName(_nameController.text);
         
-        // TODO: Save user role and profile to Firestore
+        // Save user role and profile to Firestore
+        await UserService.saveUserProfile(
+          uid: userCredential.user!.uid,
+          email: _emailController.text,
+          name: _nameController.text,
+          role: _userRole,
+        );
         
       } else {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -60,6 +67,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.message}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {

@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
+import 'services/user_service.dart';
+import 'models/user_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,25 +73,225 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String _userRole = 'customer';
+  late String _userId;
+
+  @override
+  void initState() {
+    super.initState();
+    _userId = FirebaseAuth.instance.currentUser!.uid;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Madadgar',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+    return StreamBuilder<UserModel?>(
+      stream: UserService.getUserProfileStream(_userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data == null) {
+          return Scaffold(
+            body: Center(
+              child: Text('Error loading user profile'),
+            ),
+          );
+        }
+
+        final user = snapshot.data!;
+        final isCustomer = user.role == 'customer';
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Madadgar',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            backgroundColor: colorScheme.primary,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () => FirebaseAuth.instance.signOut(),
+              ),
+            ],
           ),
-        ),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: Colors.white,
-      ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  colorScheme.surface,
+                  colorScheme.surface.withOpacity(0.95),
+                ],
+              ),
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Welcome Section
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, ${user.name}!',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onPrimaryContainer,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Role: ${isCustomer ? 'I need help' : 'I want to help'}',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onPrimaryContainer.withOpacity(0.8),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Content based on role (removed toggle)
+                    if (isCustomer) ...[
+                      Text(
+                        'Post an Errand',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildActionCard(
+                        context,
+                        'Create New Task',
+                        'Post your errand and find a helper nearby',
+                        Icons.add_circle_outline,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Pending Tasks',
+                        'View tasks waiting for a helper',
+                        Icons.schedule,
+                        Colors.orange,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'Task History',
+                        'Review your completed errands',
+                        Icons.history,
+                        Colors.green,
+                      ),
+                    ] else ...[
+                      Text(
+                        'Find & Earn',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildActionCard(
+                        context,
+                        'Browse Nearby Tasks',
+                        'Find available tasks in your area',
+                        Icons.location_on_outlined,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Active Tasks',
+                        'View tasks you are currently helping with',
+                        Icons.assignment_turned_in_outlined,
+                        Colors.green,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Earnings',
+                        'View your completed tasks and earnings',
+                        Icons.wallet_outlined,
+                        Colors.amber,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+                      Text(
+                        'Find & Earn',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildActionCard(
+                        context,
+                        'Browse Nearby Tasks',
+                        'Find available tasks in your area',
+                        Icons.location_on_outlined,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Active Tasks',
+                        'View tasks you are currently helping with',
+                        Icons.assignment_turned_in_outlined,
+                        Colors.green,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Earnings',
+                        'View your completed tasks and earnings',
+                        Icons.wallet_outlined,
+                        Colors.amber,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -143,103 +345,8 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 28),
 
-                // Role Selection Toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: colorScheme.outline.withOpacity(0.2),
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _userRole = 'customer'),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: _userRole == 'customer'
-                                  ? colorScheme.primary
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.shopping_bag,
-                                    color: _userRole == 'customer'
-                                        ? Colors.white
-                                        : colorScheme.onSurfaceVariant,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'I need help',
-                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                          color: _userRole == 'customer'
-                                              ? Colors.white
-                                              : colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _userRole = 'helper'),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: _userRole == 'helper'
-                                  ? colorScheme.primary
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.volunteer_activism,
-                                    color: _userRole == 'helper'
-                                        ? Colors.white
-                                        : colorScheme.onSurfaceVariant,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'I want to help',
-                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                          color: _userRole == 'helper'
-                                              ? Colors.white
-                                              : colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Content based on role
-                if (_userRole == 'customer') ...[
+                    // Content based on role (removed toggle)
+                    if (isCustomer) ...[
                   Text(
                     'Post an Errand',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
