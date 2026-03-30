@@ -1,7 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:device_preview/device_preview.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'screens/login_screen.dart';
+import 'services/user_service.dart';
+import 'models/user_model.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // DevicePreview doesn't work well on web, disable it there
+  final bool enableDevicePreview = !kIsWeb;
+  
+  runApp(
+    DevicePreview(
+      enabled: enableDevicePreview,
+      builder: (context) => const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -9,12 +30,43 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool enableDevicePreview = !kIsWeb;
+    
     return MaterialApp(
-      title: 'Simple Flutter App',
+      title: 'Madadgar',
+      debugShowCheckedModeBanner: false,
+      useInheritedMediaQuery: enableDevicePreview,
+      locale: enableDevicePreview ? DevicePreview.locale(context) : null,
+      builder: enableDevicePreview ? DevicePreview.appBuilder : null,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.light,
+        ),
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          centerTitle: true,
+        ),
       ),
-      home: const HomePage(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          
+          if (snapshot.hasData) {
+            // User is logged in
+            return const HomePage();
+          } else {
+            // User is not logged in
+            return const LoginScreen();
+          }
+        },
+      ),
     );
   }
 }
@@ -27,39 +79,269 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+  late String _userId;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  void initState() {
+    super.initState();
+    _userId = FirebaseAuth.instance.currentUser!.uid;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Simple App'),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Counter:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return StreamBuilder<UserModel?>(
+      stream: UserService.getUserProfileStream(_userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
             ),
-          ],
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data == null) {
+          return Scaffold(
+            body: Center(
+              child: Text('Error loading user profile'),
+            ),
+          );
+        }
+
+        final user = snapshot.data!;
+        final isCustomer = user.role == 'customer';
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Madadgar',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            backgroundColor: colorScheme.primary,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () => FirebaseAuth.instance.signOut(),
+              ),
+            ],
+          ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  colorScheme.surface,
+                  colorScheme.surface.withOpacity(0.95),
+                ],
+              ),
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Welcome Section
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, ${user.name}!',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onPrimaryContainer,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Role: ${isCustomer ? 'I need help' : 'I want to help'}',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onPrimaryContainer.withOpacity(0.8),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Content based on role (removed toggle)
+                    if (isCustomer) ...[
+                      Text(
+                        'Post an Errand',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildActionCard(
+                        context,
+                        'Create New Task',
+                        'Post your errand and find a helper nearby',
+                        Icons.add_circle_outline,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Pending Tasks',
+                        'View tasks waiting for a helper',
+                        Icons.schedule,
+                        Colors.orange,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'Task History',
+                        'Review your completed errands',
+                        Icons.history,
+                        Colors.green,
+                      ),
+                    ] else ...[
+                      Text(
+                        'Find & Earn',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildActionCard(
+                        context,
+                        'Browse Nearby Tasks',
+                        'Find available tasks in your area',
+                        Icons.location_on_outlined,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Active Tasks',
+                        'View tasks you are currently helping with',
+                        Icons.assignment_turned_in_outlined,
+                        Colors.green,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildActionCard(
+                        context,
+                        'My Earnings',
+                        'View your completed tasks and earnings',
+                        Icons.wallet_outlined,
+                        Colors.amber,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color accentColor,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title coming soon'),
+              duration: const Duration(milliseconds: 800),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.outline.withOpacity(0.1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: accentColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: colorScheme.outlineVariant,
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        child: const Icon(Icons.add),
       ),
     );
   }
