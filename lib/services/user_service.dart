@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 
 class UserService {
@@ -9,14 +8,14 @@ class UserService {
   // Save user to Firestore after signup
   static Future<void> saveUserProfile({
     required String uid,
-    required String email,
+    required String phoneNumber,
     required String name,
     required String role,
   }) async {
     try {
       final newUser = UserModel(
         uid: uid,
-        email: email,
+        phoneNumber: phoneNumber,
         name: name,
         role: role,
         createdAt: DateTime.now(),
